@@ -1,0 +1,107 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "portwhisk",
+  "version": "0.1.0",
+  "private": true,
+  "title": "Portwhisk",
+  "description": "Manage SSH connections in Tinycast and open them in your preferred terminal.",
+  "icon": "icon.png",
+  "author": "chocoer",
+  "license": "MIT",
+  "platforms": [
+    "macOS"
+  ],
+  "categories": [
+    "Developer Tools"
+  ],
+  "commands": [
+    {
+      "name": "connect",
+      "title": "Connect",
+      "description": "Search and connect to saved SSH servers.",
+      "mode": "view",
+      "keywords": [
+        "ssh",
+        "server",
+        "连接服务器",
+        "连接"
+      ]
+    },
+    {
+      "name": "manage-connections",
+      "title": "Manage Connections",
+      "description": "Add, edit, and delete local SSH connections.",
+      "mode": "view",
+      "keywords": [
+        "ssh",
+        "hosts",
+        "管理连接",
+        "添加连接",
+        "编辑连接",
+        "删除连接"
+      ]
+    },
+    {
+      "name": "terminal-settings",
+      "title": "Terminal Settings",
+      "description": "Choose the default terminal for SSH sessions.",
+      "mode": "view",
+      "keywords": [
+        "ssh",
+        "terminal",
+        "终端设置",
+        "终端"
+      ]
+    }
+  ],
+  "scripts": {
+    "build": "ray build -e dist -o dist --non-interactive --exit-on-error && cp LICENSE dist/LICENSE",
+    "package": "npm run build && npm run package:release --",
+    "package:release": "node scripts/package-release.mjs",
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm test",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src tests scripts assets/*.js eslint.config.mjs",
+    "format:check": "prettier --check src tests scripts assets/*.js .github/workflows package.json tsconfig.json eslint.config.mjs .prettierrc.json",
+    "test": "npm run build && npm run test:unit",
+    "test:unit": "node --test tests/*.test.mjs",
+    "release:check": "node scripts/release.mjs --check",
+    "release": "node scripts/release.mjs"
+  },
+  "dependencies": {
+    "@raycast/api": "2.8.2"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "2.2.0",
+    "@types/node": "22.19.17",
+    "@types/react": "19.0.10",
+    "eslint": "9.39.5",
+    "happy-dom": "21.0.4",
+    "prettier": "3.9.10",
+    "react-dom": "19.0.0",
+    "typescript": "6.0.3"
+  },
+  "engines": {
+    "node": ">=22.22.2",
+    "npm": ">=10"
+  },
+  "preferences": [
+    {
+      "name": "language",
+      "type": "dropdown",
+      "required": false,
+      "title": "Language / 语言",
+      "description": "Interface language. Reopen the command after changing it. / 界面语言，修改后请重新打开命令。",
+      "default": "en",
+      "data": [
+        {
+          "title": "English",
+          "value": "en"
+        },
+        {
+          "title": "简体中文",
+          "value": "zh-CN"
+        }
+      ]
+    }
+  ]
+}

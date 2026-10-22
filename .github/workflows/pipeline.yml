@@ -1,0 +1,170 @@
+name: CI and Release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  check:
+    name: Check (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-fund
+      - name: Check, build and test
+        run: npm run check
+      - name: Package macOS extension
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            npm run package:release -- --tag "$GITHUB_REF_NAME"
+          else
+            npm run package:release
+          fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: portwhisk-${{ matrix.os }}
+          path: release/*
+          if-no-files-found: error
+          retention-days: 14
+
+  verify-package:
+    name: Run release package on Intel
+    needs: check
+    runs-on: macos-15-intel
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          package-manager-cache: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: portwhisk-macos-15
+          path: release
+      - name: Verify and extract the exact package to publish
+        working-directory: release
+        shell: bash
+        run: |
+          shasum -a 256 --check SHA256SUMS
+          archives=(portwhisk-*-macos.zip)
+          [[ ${#archives[@]} == 1 && -f "${archives[0]}" ]]
+          /usr/bin/ditto -x -k "${archives[0]}" "$RUNNER_TEMP/unpacked"
+          helper="$RUNNER_TEMP/unpacked/portwhisk/assets/keychain-helper"
+          [[ -x "$helper" ]]
+          [[ "$(head -n 1 "$helper")" == '#!/bin/sh' ]]
+          /bin/sh -n "$helper"
+          for script in system.js system-core.js; do
+            [[ -s "$RUNNER_TEMP/unpacked/portwhisk/assets/$script" ]]
+            cmp "../assets/$script" "$RUNNER_TEMP/unpacked/portwhisk/assets/$script"
+          done
+          cmp ../assets/keychain-helper "$helper"
+          cmp ../LICENSE "$RUNNER_TEMP/unpacked/portwhisk/LICENSE"
+      - name: Run packaged helper file checks without credentials or SSH connections
+        env:
+          PORTWHISK_TEST_HELPER: ${{ runner.temp }}/unpacked/portwhisk/assets/keychain-helper
+        run: |
+          mkdir -p build
+          node --test tests/system-session.test.mjs
+
+  publish:
+    name: Publish verified release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: [check, verify-package]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: portwhisk-macos-15
+          path: release
+      - name: Upload, download-verify and publish
+        working-directory: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          [[ "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          archive="portwhisk-${version}-macos.zip"
+          [[ -f "$archive" ]]
+          sha256sum --check SHA256SUMS
+          [[ "$(unzip -p "$archive" portwhisk/package.json | jq -r .version)" == "$version" ]]
+          # 普通 test 在 macOS 自带旧 Bash 下也能保持失败即停。
+          test "$(unzip -p "$archive" portwhisk/package.json | jq -r .license)" = MIT
+          unzip -p "$archive" portwhisk/LICENSE | cmp ../LICENSE -
+          awk -v version="$version" '
+            /^## / { if (found) exit; if (index($0, "## [" version "] - ") == 1) { found=1; next } }
+            found { print; if (/^- /) entries++ }
+            END { if (!found || !entries) exit 1 }
+          ' ../CHANGELOG.md > "$RUNNER_TEMP/release-notes.md"
+          cat >> "$RUNNER_TEMP/release-notes.md" <<'NOTES'
+          ### Install / 安装
+
+          Download the macOS ZIP, extract it, and select portwhisk in Tinycast Settings → Extensions → Install → Add from folder.
+          Reimport to update without uninstalling; saved connections and terminal preferences are kept.
+          Requires macOS 26 or later. Supports Apple Silicon and Intel.
+          Choose English or 简体中文 under Settings → Extensions → Portwhisk → Configure → Language / 语言, then reopen the command.
+
+          ### 安装与更新
+
+          下载下方 macOS ZIP 并解压，在 Tinycast 的 Settings → Extensions → Install → Add from folder 中选择 portwhisk 文件夹。
+          更新时直接重新导入同名扩展，无需卸载，已有连接和终端偏好会保留。
+          需要 macOS 26 或更高版本，支持 Apple Silicon 与 Intel。
+          在 Settings → Extensions → Portwhisk → Configure → Language / 语言 中切换中英文，然后重新打开命令。
+          NOTES
+          if draft=$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft); then
+            [[ "$draft" == true ]] || { echo "已有已发布版本，拒绝覆盖。"; exit 1; }
+          else
+            gh release create "$GITHUB_REF_NAME" --verify-tag --draft \
+              --title "Portwhisk $GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/release-notes.md"
+          fi
+          mkdir -p "$RUNNER_TEMP/release-remote"
+          assets=$(gh release view "$GITHUB_REF_NAME" --json assets --jq '[.assets[].name]')
+          # 重跑只复用当前 ZIP；旧包或校验文件不能随草稿一起公开。
+          jq -e --arg archive "$archive" \
+            'type == "array" and length <= 1 and all(.[]; . == $archive)' <<< "$assets" > /dev/null \
+            || { echo "草稿包含预期以外的附件，拒绝发布。"; exit 1; }
+          if [[ "$(jq length <<< "$assets")" == 1 ]]; then
+            gh release download "$GITHUB_REF_NAME" --pattern "$archive" --dir "$RUNNER_TEMP/release-remote"
+            cmp "$archive" "$RUNNER_TEMP/release-remote/$archive"
+          else
+            gh release upload "$GITHUB_REF_NAME" "$archive"
+          fi
+          gh release download "$GITHUB_REF_NAME" --dir "$RUNNER_TEMP/release-verify" \
+            --pattern "$archive"
+          cmp "$archive" "$RUNNER_TEMP/release-verify/$archive"
+          gh release edit "$GITHUB_REF_NAME" --draft=false --prerelease=false --latest \
+            --title "Portwhisk $GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/release-notes.md"

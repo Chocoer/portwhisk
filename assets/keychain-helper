@@ -1,0 +1,46 @@
+#!/bin/sh
+# 入口只转交非秘密参数；认证密码始终由系统 JavaScript 直接写入 SSH 管道。
+script_dir=$(CDPATH= cd -P "$(/usr/bin/dirname "$0")" && pwd) || exit 1
+# shell 保持 SSH 的输出管道；认证子进程异常退出时，先停止本次 SSH 再关闭管道。
+if [ "$#" -eq 1 ] && [ -n "${PORTWHISK_SSH_SESSION-}" ]; then
+  /usr/bin/osascript -l JavaScript "$script_dir/system.js" "$@" &
+  askpass_child=$!
+  /usr/bin/osascript -l JavaScript "$script_dir/system.js" ssh-watch "$PORTWHISK_SSH_SESSION" "$askpass_child" > /dev/null &
+  askpass_guard=$!
+  stop_askpass() {
+    /usr/bin/osascript -l JavaScript "$script_dir/system.js" ssh-stop "$PORTWHISK_SSH_SESSION" "$askpass_child" > /dev/null
+    wait "$askpass_child" 2>/dev/null
+    wait "$askpass_guard" 2>/dev/null
+  }
+  trap 'stop_askpass; exit 1' HUP INT QUIT TERM PIPE ALRM
+  wait "$askpass_guard"
+  guard_outcome=$?
+  # 只有监督器明确确认认证子进程结束的保留状态才算完成，意外退出 0 也停止认证。
+  [ "$guard_outcome" -eq 73 ] || stop_askpass
+  wait "$askpass_child"
+  outcome=$?
+  trap - HUP INT QUIT TERM PIPE ALRM
+  [ "$outcome" -eq 0 ] || stop_askpass
+  [ "$guard_outcome" -eq 73 ] || exit 1
+  exit "$outcome"
+fi
+if [ "${1-}" != "ssh-start" ]; then
+  exec /usr/bin/osascript -l JavaScript "$script_dir/system.js" "$@"
+fi
+[ "$#" -eq 2 ] && [ -t 0 ] || exit 1
+session=$2
+/usr/bin/osascript -l JavaScript "$script_dir/system.js" ssh-start-prepare "$session" || exit 1
+/usr/bin/osascript -l JavaScript "$script_dir/system.js" ssh-exec "$session" < /dev/tty &
+child=$!
+trap '/usr/bin/osascript -l JavaScript "$script_dir/system.js" ssh-signal "$session" 2' INT
+trap '/usr/bin/osascript -l JavaScript "$script_dir/system.js" ssh-signal "$session" 15' TERM
+trap '/usr/bin/osascript -l JavaScript "$script_dir/system.js" ssh-signal "$session" 1' HUP
+while :; do
+  wait "$child"
+  outcome=$?
+  # wait 被信号中断时继续等待；已回收子进程不再按同一数字 PID 发送信号。
+  [ "$outcome" -ne 127 ] && kill -0 "$child" 2>/dev/null || break
+done
+trap - INT TERM HUP
+/usr/bin/osascript -l JavaScript "$script_dir/system.js" ssh-finish "$session" || exit 1
+exit "$outcome"
