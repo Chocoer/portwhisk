@@ -674,6 +674,37 @@ test("终端设置只列已安装候选，保存后重新打开仍使用所选�
   });
 });
 
+test("iTerm2 先跳过默认启动行为，再创建一个独立连接窗口并激活", async () => {
+  await withHarness(async (harness) => {
+    harness.state.storage.set(
+      terminalFile,
+      JSON.stringify({ terminalId: "com.googlecode.iterm2" }),
+    );
+    await showSavedConnection(harness);
+    await harness.click("连接服务器");
+    const launches = harness.state.calls.filter((call) => call.file === "/usr/bin/osascript");
+    assert.equal(launches.length, 1);
+    // 检查实际交接脚本的系统命令契约；不把模拟边界当作真实窗口数量证据。
+    const commands = launches[0].args[1]
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith("--"));
+    assert.deepEqual(commands, [
+      "on run argv",
+      'tell application id "com.googlecode.iterm2"',
+      "launch",
+      "create window with default profile command (item 1 of argv)",
+      "activate",
+      "end tell",
+      "end run",
+    ]);
+    assert.equal(
+      launches[0].args[2],
+      `'/controlled-extension/assets/keychain-helper' 'ssh-start' '/controlled-extension/support/sessions/${sessionId}'`,
+    );
+  });
+});
+
 test("设置中缺失的候选不会出现，终端全部不可用时不给出保存操作", async () => {
   await withHarness(async (harness) => {
     harness.state.terminalIds = ["com.apple.Terminal"];

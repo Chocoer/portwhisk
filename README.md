@@ -2,7 +2,7 @@
 
 English | [简体中文](README.zh-CN.md)
 
-**[Download v0.1.0 for macOS](https://github.com/Chocoer/portwhisk/releases/download/v0.1.0/portwhisk-0.1.0-macos.zip)** · [Release](https://github.com/Chocoer/portwhisk/releases/tag/v0.1.0) · [Changelog](CHANGELOG.md)
+**[Download v0.1.1 for macOS](https://github.com/Chocoer/portwhisk/releases/download/v0.1.1/portwhisk-0.1.1-macos.zip)** · [Release](https://github.com/Chocoer/portwhisk/releases/tag/v0.1.1) · [Changelog](CHANGELOG.md)
 
 An SSH launcher for Tinycast: manage local connections, save passwords in macOS Keychain, and open system OpenSSH sessions in your preferred terminal.
 

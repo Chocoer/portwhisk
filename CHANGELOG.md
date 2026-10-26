@@ -1,5 +1,15 @@
 # 更新日志
 
+## [0.1.1] - 2026-10-26
+
+### 修复
+
+- 调整 iTerm2 启动顺序，避免冷启动连接时额外打开空白本地终端窗口。
+
+### English
+
+- Adjust iTerm2 startup to avoid an extra blank local terminal window when connecting from a cold start.
+
 ## [0.1.0] - 2026-10-22
 
 ### 新增
@@ -23,4 +33,5 @@
 - Preserve host-key verification and recoverable state after interrupted saves or authentication.
 - Provide one macOS ZIP for Apple Silicon and Intel, with automated builds and releases.
 
+[0.1.1]: https://github.com/Chocoer/portwhisk/releases/tag/v0.1.1
 [0.1.0]: https://github.com/Chocoer/portwhisk/releases/tag/v0.1.0

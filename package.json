@@ -1,7 +1,7 @@
 {
   "$schema": "https://www.raycast.com/schemas/extension.json",
   "name": "portwhisk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "title": "Portwhisk",
   "description": "Manage SSH connections in Tinycast and open them in your preferred terminal.",

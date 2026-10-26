@@ -3,11 +3,13 @@
 ## 当前结论
 
 - Portwhisk 使用 TypeScript/JavaScript、POSIX shell 与 macOS 自带接口，提供连接、管理连接、终端设置三个命令；不编译或分发项目自带的原生二进制，不需要额外常驻运行时。
-- [Portwhisk v0.1.0](https://github.com/Chocoer/portwhisk/releases/tag/v0.1.0) 为当前唯一正式发布，附件仅 `portwhisk-0.1.0-macos.zip`。
+- 已发布基线为 [Portwhisk v0.1.0](https://github.com/Chocoer/portwhisk/releases/tag/v0.1.0)。本轮准备 v0.1.1 补丁版本，最终发布状态以对应 tag 的 Actions 和 Release 为准。
 - 依赖与开发命令以 package.json 和 package-lock.json 为准。打包只复制明确白名单文件，产物名为 `portwhisk-<版本>-macos.zip`，支持 Apple Silicon 和 Intel。
 - 普通记录、凭据事务和 SSH 边界分别见[连接管理](connections.md)、[SSH 与终端](ssh.md)，规格见 [V1 规格](../spec.md)，开发与发布流程见[文档入口](../README.md)。
 
 ## 当前工作
+
+- v0.1.1：用户已授权提交推送与打 tag。范围为 iTerm2 启动修复、回归检查、版本/锁文件、双语下载链接和更新日志；不改变依赖或发布工作流。验收为完整检查通过、main 推送成功、注解 tag v0.1.1 指向同一提交且推送成功。计划：同步版本与发行说明 → 完整检查 → 提交并推送 main → 现有 release 脚本复核并推送 tag → 核对远端与 CI 状态。真实终端验证仍未执行，详情见 SSH 模块。
 
 - 命令已规范：package/test 是自包含入口，package:release/test:unit 复用已有构建；release:check 检查但不写 Git 引用，release 检查后创建并推送注解 vX.Y.Z。预检覆盖版本/lock/CHANGELOG、干净 main、真实 origin 同步及已有标签，检查后再次核对；正常入口禁止覆盖。
 
@@ -33,6 +35,16 @@
 - 认证回归只用独立假进程，真实 Security 操作在测试副本替换；内存 ACL 检查不访问钥匙串。发布回归执行真实工作流 shell，GitHub 使用本地 fake gh。
 
 ## 变更记录
+
+### 2026-10-26 17:20:20
+
+- 0.1.1 版本与锁文件根版本、双语下载链接和 CHANGELOG 已同步；依赖版本无变化。完整 npm run check 通过：类型、ESLint、非写入格式检查、构建、135/135 回归。差异检查通过，范围共九份文件。
+- 本地发布准备完成，下一步按授权提交并推送 main，再由 npm run release 复核同一提交并推送 v0.1.1 注解标签。远端最终回执以 Git 引用和 Actions/Release 为准，不为发布回执另加源码提交；真实 iTerm2 窗口行为仍待实机复测。
+
+### 2026-10-26 17:19:18
+
+- 收到“直接推送打tag”授权。核对当前 main 与真实 origin/main 均为 9bfb0e3，只有 v0.1.0 标签；工作区仅有本次 SSH 修复的三份文件，暂存区为空。
+- 按补丁修复采用 0.1.1，保留 v0.1.0。沿用 npm run release 创建并推送注解 tag，由现有流水线完成双架构检查、同包 Intel 验证和正式发布；不绕过发布门禁。
 
 ### 2026-10-22 09:21:42
 

@@ -4,6 +4,7 @@
 
 - 提供 Terminal/iTerm2 选择，仅显示已安装候选。首次无设置使用 Terminal；已有设置损坏、终端被卸载或启动失败时明确报错，不静默换终端。
 - 每次连接重新读取选中记录，冻结非秘密会话描述，由所选终端启动独立系统 OpenSSH。扩展只报告“已交给终端启动”，登录结果以终端为准。
+- iTerm2 脚本先 launch 跳过通常的启动行为，再 create window 并 activate；自动回归核对该交接契约，真实冷启动窗口数量仍待实机复测。
 - 使用系统 JavaScript 与 shell 监督，不引入常驻服务或项目编译二进制。编辑/删除的一致性约束见[连接管理](connections.md)。
 
 ## 调用与认证边界
@@ -24,8 +25,11 @@
 
 ## 当前工作
 
-- 状态：当前认证监督与清理修复纳入 0.1.0 工程基线；本次不改变支持终端或用户数据。
-- 验收：只处理明确选定目标；保留主机校验；最多自动供密一次；取消/异常清理本次资源；不误报已登录。
+- 状态：iTerm2 冷启动额外空白窗口的脚本修复与自动检查已完成；真实窗口行为待实机复测。
+- 目标与验收：启动脚本先使用不触发默认启动行为的 launch，再创建一个独立 SSH 窗口并激活；保留已有会话、连接去重、参数转义和失败清理。
+- 范围：src/terminals/launch.ts 的 iTerm2 脚本、tests/extension.test.mjs 的命令入口回归及本文。非目标：Terminal 行为、认证协议、用户数据、依赖、发布与安装。
+- 已完成：核实系统启动语义 → 先补失败回归 → 最小脚本修复 → 构建、限定 lint/格式检查与命令入口回归 → 差异核对。
+- 风险与验证边界：系统边界测试能锁定发送给 iTerm2 的启动命令，不能证明真实窗口数量；真实 Tinycast/iTerm2、用户自定义启动恢复策略与 SSH 登录未授权自动操作，需单列实机验收。
 
 ## 接口依据
 
@@ -33,8 +37,21 @@
 - [OpenSSH 认证挑战](https://github.com/openssh/openssh-portable/blob/V_10_3_P1/sshconnect2.c)：keyboard-interactive 的本地目标前缀。
 - [Darwin readpassphrase](https://github.com/apple-oss-distributions/Libc/blob/main/gen/FreeBSD/readpassphrase.c)：终端回显和信号恢复。
 - [iTerm2 AppleScript](https://iterm2.com/documentation-one-page.html)：创建独立窗口与命令参数。
+- [AppleScript 命令参考](https://developer.apple.com/library/archive/documentation/AppleScript/Conceptual/AppleScriptLangGuide/reference/ASLR_cmds.html)：launch 不发送 run，可跳过通常的启动行为；已运行时无操作。结合用户报告与现有脚本，默认启动窗口叠加显式连接窗口是本次修复依据，尚非实机确认的根因。
 
 ## 变更记录
+
+### 2026-10-26 17:16:06
+
+- iTerm2 脚本仅新增 launch 和原因注释，保留 create window 的 command 参数及最后的 activate，不向已有会话写入命令。新增命令入口回归在旧构建上因缺少 launch 失败，修复后通过。
+- 验证通过：生产构建、TypeScript、修改的两份代码文件 ESLint/Prettier 非写入检查、50/50 命令入口测试、git diff --check。覆盖终端选择、重复触发去重、启动失败清理、受控参数和秘密不泄漏；检查到的 npm 用户配置警告未影响成功结果。
+- 本地 dist 已重新生成，可重新导入 Tinycast 复测。未执行真实 Tinycast/iTerm2 自动化、钥匙串或远端 SSH，不把脚本契约回归当成真实窗口数量验收；未提交、推送、发布或修改已安装扩展。无需额外决定。
+
+### 2026-10-26 17:14:11
+
+- 用户确认多出的窗口为空白本地终端，主要出现在 iTerm2 未启动或没有窗口时。本机只读检查版本为 3.7.6，脚本字典支持带 command 的 create window；未启动或操控真实终端。
+- 工作区初始 staged、unstaged、untracked 均为空。已追踪共用列表 → connect → launchTerminal → 会话辅助脚本；只有一个终端 spawn，辅助脚本不创建终端窗口。
+- 修改前生产构建与两项入口基线通过：终端选择持久化、启动中重复触发去重。拟通过 launch 避免普通 AppleScript 自动启动触发默认窗口，再保留单次独立窗口创建。
 
 ### 2026-10-22 09:15:12
 

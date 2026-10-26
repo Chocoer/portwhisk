@@ -2,7 +2,7 @@
 
 [English](README.md) | 简体中文
 
-**[下载安装包 v0.1.0（macOS）](https://github.com/Chocoer/portwhisk/releases/download/v0.1.0/portwhisk-0.1.0-macos.zip)** · [发布页面](https://github.com/Chocoer/portwhisk/releases/tag/v0.1.0) · [更新日志](CHANGELOG.md)
+**[下载安装包 v0.1.1（macOS）](https://github.com/Chocoer/portwhisk/releases/download/v0.1.1/portwhisk-0.1.1-macos.zip)** · [发布页面](https://github.com/Chocoer/portwhisk/releases/tag/v0.1.1) · [更新日志](CHANGELOG.md)
 
 面向 Tinycast 的 SSH 快捷连接扩展：管理本地连接、通过 macOS 钥匙串保存密码，并在用户选择的终端中启动系统 OpenSSH 会话。
 

@@ -16,6 +16,8 @@ const scripts: Record<string, string> = {
 end run`,
   "com.googlecode.iterm2": `on run argv
   tell application id "com.googlecode.iterm2"
+    -- launch 跳过冷启动时的默认窗口，随后只创建本次连接窗口。
+    launch
     create window with default profile command (item 1 of argv)
     activate
   end tell
